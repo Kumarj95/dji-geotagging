@@ -235,7 +235,7 @@ class GeoTagger:
 
     #TODO: Write a method to interpolate the log file to have one entry per frame (get frame by frame lat, lon, altitude, pitch, yaw, roll)
 
-    def interpolate_rotation_angles(self, target_frequency=30):
+    def interpolate_rotation_angles(self):
         ''' The SRT file contains latitude, longitude and altitude information already we just have to add interpolated rotation angles for both the drone body and the gimbal (yaw, pitch, roll), from the log file
         Args:
             target_frequency (int): How many samples per second we would like the interpolated DF to have (should be equal to the FPS)
@@ -244,6 +244,7 @@ class GeoTagger:
             df_interpolated (pd.Dataframe): The logfile DF interpolated to target_frequency samples per second
         '''
 
+        target_frequency=self.fps
         first_time = p.parse(self.logdf.iloc[0]['datetime(utc)']).replace(tzinfo=ZoneInfo('UTC')).astimezone(self.timezone)
         
 
@@ -417,7 +418,7 @@ class GeoTagger:
                   # ← your reference photo
 
         # ExifTool returns JSON when you pass -j
-        raw = subprocess.check_output(["exiftool", "-j", "-All", Template])
+        raw = subprocess.check_output(["exiftool", "-j", "-All", os.path.abspath(Template)])
         for video, df, video_name in zip(self.video_paths,self.srt_dfs, self.video_names):
             cap = cv2.VideoCapture(video)
             fps = cap.get(cv2.CAP_PROP_FPS)  
@@ -450,7 +451,7 @@ class GeoTagger:
 
                         subprocess.check_output([
                             "exiftool", "-overwrite_original", "-F",
-                            "-TagsFromFile", Template,
+                            "-TagsFromFile", os.path.abspath(Template),
                             f"-Model={CameraModel}",
                             f"-DateTimeOriginal={dt_str}",
                             f"-CreateDate={dt_str}",
@@ -498,9 +499,9 @@ def preprocess_args(args):
     return args
 def main(args):
     if(args.SRTDir is not None):
-        gt= GeoTagger(args.LogFile, args.SRTDir, frame_index=args.FrameIndex, video_dir=args.VideoDir)
+        gt= GeoTagger(args.LogFile, args.SRTDir, frame_index=args.FrameIndex, video_dir=args.VideoDir,target_gimbal=args.TargetGimbal,timezone=args.Timezone,fps=args.FPS)
     elif(args.SRTPaths is not None):
-        gt= GeoTagger(args.LogFile, args.SRTPaths, frame_index=args.FrameIndex, video_dir=args.VideoDir)
+        gt= GeoTagger(args.LogFile, args.SRTPaths, frame_index=args.FrameIndex, video_dir=args.VideoDir,target_gimbal=args.TargetGimbal,timezone=args.Timezone,fps=args.FPS)
     else:
         raise RuntimeError("Either an SRT dir or SRT paths must be provided")
     
@@ -516,18 +517,22 @@ def get_parser():
     parser.add_argument("LogFile", help="Path to the log file corresponding to the flight", type=str)
     parser.add_argument("--SRTDir",help="Path to a directory containing the SRT files to parse", type=str)
     parser.add_argument("--SRTPaths", help="Space seperated list of paths to SRT files", nargs="+")
-    parser.add_argument("--FrameIndex", help="Number of frames to skip in first video of log file (if the video contains pitching down motion)", type=int, default=1)
+    parser.add_argument("--FrameIndex", help="Number of frames to skip in first video of log file (if the video contains pitching down motion, default 1)", type=int, default=1)
     parser.add_argument("--VideoDir", help="Path to directory containing videos corresponding to SRT files required for extracting frames", type=str)
     parser.add_argument("--SaveJson", help="If to save results in json format", action='store_true', default=False)
     parser.add_argument("--JsonPath", help="Path to save json to leave blank for default save", type=str)
     parser.add_argument("--SaveFrames", help="If to save the frames of the video individually", action='store_true', default=False)
     parser.add_argument("--FrameDirectory", help="Directory to save frames to",  type=str)
+    parser.add_argument("--TargetGimbal", help="What gimbal angle we we are targetting for our frames",  type=float, default=-69)
+    parser.add_argument("--FPS", help="Our video FPS (and how often to interpolate the log file)",  type=float, default=30)
+    
+    parser.add_argument("--Timezone", help="Timezone for timestamps",  type=str, default="America/Toronto")
 
     parser.add_argument("--SamplingRate", help="Sampling rate to save frames at", type=int, default=100)
 
     parser.add_argument("--Portrait", help="If video was shot in portrait", action="store_true", default=False)
     parser.add_argument("--CameraModel", help="Camera model of drone (useful for downstream photometry tasks)", type=str, default="FC8482")
-    parser.add_argument("--Template", help="Template jpg file to copy metadata from", type=str, default="../Template/DJI_0419.JPG")
+    parser.add_argument("--Template", help="Template jpg file to copy metadata from", type=str, default="Template/DJI_0419.JPG")
 
     return parser
 
