@@ -72,14 +72,10 @@ Sample Usage
 python3 src/main.py Data/LogFiles/logfile1.csv --SRTDir=Data/SRTFiles --VideoDir=Data/VideoFiles --SaveFrames  
         --FrameDirectory=Data/Output/logfile1_frames/ --SaveJson --JsonPath=Data/Output --Template=Data/Template/template_image.JPG
 ```
-* Step-by-step bullets
-```
-code blocks for commands
-```
 
 ## Help
 
-For full list of commands try
+For full list of commands
 
 ```
 python3 src/main.py -h
