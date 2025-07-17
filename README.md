@@ -87,9 +87,9 @@ python src/main.py -h
 
 ---
 
-## Roadmap
+<!-- ## Roadmap
 
 - **Object‑projection module** – re‑project detection results from image space to world coordinates using camera intrinsics and the extrinsics produced by `src/main.py`.
 - **Elevation correction** – integrate digital elevation models (DEMs) for height‑above‑ground accuracy.
-
+ -->
 Contributions and pull requests are welcome!
