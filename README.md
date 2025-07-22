@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project synchronises DJI drone **flight logs** (`.CSV`) with the accompanying **subtitle files** (`.SRT`) to derive per‑frame position **and** orientation (yaw, pitch, roll) for every video frame. The enriched data unlocks applications such as:
+This project synchronises DJI drone **flight logs** (`.CSV`) ([airdata](https://airdata.com/)) with the accompanying **subtitle files** (`.SRT`) to derive per‑frame position **and** orientation (yaw, pitch, roll) for every video frame. The enriched data unlocks applications such as:
 
 - Aerial photogrammetry
 - Traffic analytics
@@ -11,7 +11,7 @@ This project synchronises DJI drone **flight logs** (`.CSV`) with the accompanyi
 
 DJI embeds latitude/longitude in the SRT file but omits orientation. Meanwhile, the flight log stores orientation data, yet its timestamps differ slightly from the SRT. We bridge that gap with a two‑step heuristic:
 
-1. **Window search** – the first SRT frame of interest, gather all log‑file rows whose locations fall within a set threshold.
+1. **Window search** – for the first SRT frame of interest, gather all log‑file rows whose locations fall within a set threshold.
 2. **Gimbal‑angle match** – from that subset, choose the first row whose gimbal pitch equals the user‑specified target angle (most videos are recorded at a fixed gimbal angle).
 
 The output is a frame‑aligned stream of position **and** orientation ready for downstream computer‑vision or GIS pipelines.
@@ -58,10 +58,6 @@ Data/
 │   ├── video3.MP4
 │   └── video4.MP4
 ├── Output/
-│   ├── logfile1.json
-│   └── logfile1_frames/
-│       ├── video1_000000.jpg
-│       └── …
 └── Template/
     └── template_image.JPG
 ```
@@ -75,7 +71,7 @@ python src/main.py Data/LogFiles/logfile1.csv \
     --SaveFrames \
     --FrameDirectory Data/Output/logfile1_frames \
     --SaveJson \
-    --JsonPath Data/Output \
+    --JsonPath Data/Output/logfile1.json \
     --Template Data/Template/template_image.JPG
 ```
 
