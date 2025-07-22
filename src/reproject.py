@@ -20,48 +20,37 @@ FIELDS=['fn','class','score','x1','y1','x2','y2','image_path']
 
 def main(args):
 
-    suffix="_output"
 
-    json_path="demo_final.json"
+    # json_path="demo_final.json"
 
     add_ids=False
 
 
-    OutputPath="demo/drone1_detections_all_reprojected/"
+    OutputPath=args.OutputPath
 
-    # detections=["/home/kumar/SmartToScripts/Documents/Work/SmartTO-York/Bolton/Data/05-07/Drone1/predictions_output_all/DJI_20250507151649_0018_D_output.txt",
-    #                  "/home/kumar/SmartToScripts/Documents/Work/SmartTO-York/Bolton/Data/05-07/Drone1/predictions_output_all/DJI_20250507152056_0019_D_output.txt"]
-    # detections= "../SmartToScripts/Documents/Work/SmartTO-York/Bolton/Data/05-07/Drone1_Trucks_GT/image_paths/"
-    detections= "demo/drone1_detections_all/"
+    detections= args.Detections
 
-    dsm_path= "/home/kumar/SmartToScripts/Documents/Work/SmartTO-York/Bolton/Data/DSM_New/dsm_reproj.tif"
-
+    dsm_path= args.DSM
     ds = rasterio.open(dsm_path)
     dsm     = ds.read(1).astype(np.float32)    # 2-D array in memory
     T       = ds.transform                     # affine (x, y) <-> (row, col)
     Tinv = ~T                                      # rasterio trick: invert affine
     nrows, ncols = dsm.shape  
-    src_crs = "EPSG:4326"       # lat/lon on WGS84
-    tgt_crs = "EPSG:32617"      # UTM zone 17N
+    src_crs = f"EPSG:{args.SrcCRS}"       # lat/lon on WGS84
+    tgt_crs = f"EPSG:{args.TgtCRS}"      # UTM zone 17N
     transformer = Transformer.from_crs(src_crs, tgt_crs, always_xy=True)
 
-    with open(json_path,'r') as f:
+    with open(args.JsonPath,'r') as f:
         extrinsic_info= json.load(f)
         if(isinstance(extrinsic_info, list)):
             extrinsic_info=dict(ChainMap(*extrinsic_info))
     camera_to_gimbal=np.array([[0, 0, 1], [1, 0, 0], [0, 1, 0]])
     ned_to_enu= np.array([[0, 1, 0], [1, 0, 0], [0, 0, -1]])
 
-    intrinsics= {"fx": 2835.016147477985, 
-                "fy": 2837.266860178909, 
-                "cx": 1092.440583593499, 
-                "cy": 1931.475403239639, 
-                "skew": -0.393332100290136, 
-                "k1": 0.142821807742562, 
-                "k2": -0.477892606554982, 
-                "k3": 0.599039059780735, 
-                "p1": 0.0009153725930095632, 
-                "p2": 0.000866995876388925}      
+    with open(args.Intrinsics, 'r') as f:
+        intrinsics=json.load(f)            
+                     
+                     
 
     K = np.array([
             [intrinsics['fx'], intrinsics['skew'], intrinsics['cx']],
@@ -69,7 +58,7 @@ def main(args):
             [0, 0, 1] ])
     
     if(type(detections)==str and os.path.isdir(detections)):
-        detections= glob(f"{detections}/*{suffix}.txt")
+        detections= glob(f"{detections}/*{args.Suffix}.txt")
     elif(type(detections)==str and not os.path.isdir(detections)):
         raise RuntimeError("Detections must be a path to a directory or a list of paths ")
     elif(type(detections)!=list):
@@ -82,7 +71,7 @@ def main(args):
         Path(OutputPath).mkdir(parents=True, exist_ok=True)
 
     for detection_file in detections:
-        video_name=os.path.basename(detection_file).replace(suffix,"").split(".")[0]
+        video_name=os.path.basename(detection_file).replace(args.Suffix,"").split(".")[0]
         if video_name in extrinsic_info:
             info= extrinsic_info[os.path.basename(video_name)]
             df = pd.read_csv(detection_file, sep=" ", header=None)
@@ -218,10 +207,59 @@ def main(args):
             #     print(list(video_info['frames'].keys())[0])
             #     input()
         else:
-            print(f"Video {video_name} not in {json_path}")
+            print(f"Video {video_name} not in {args.JsonPath}")
 
+
+def get_parser():
+    parser= ArgumentParser()
+
+    parser.add_argument("JsonPath", help="Path to the json file with the extrinsics", type=str)
+    parser.add_argument("--Detections",help="Path to a directory containing the detections files or a list of detection paths", nargs="+", type=str)
+    parser.add_argument("--DSM", help="Path to DSM to get elevation data", type=str, default="demo/DSM/dsm_reproj.tif")
+    parser.add_argument("--SrcCRS", help="Code for source CRS (should be the number following EPSG)", type=int, default=4326)
+    parser.add_argument("--TgtCRS", help="Code for target CRS (should be the number following EPSG)", type=int, default=32617)
+    parser.add_argument("--OutputPath", help="Path to output directory", type=str)
+    parser.add_argument("--Intrinsics", help="Path to drone intrinsics", type=str, default="demo/drone1_intrinsics.json")
+    parser.add_argument("--Suffix", help="Common suffix for all detection files", type=str, default="_output")
+
+
+    parser.add_argument("--SRTPaths", help="Space seperated list of paths to SRT files", nargs="+")
+    parser.add_argument("--FrameIndex", help="Number of frames to skip in first video of log file (if the video contains pitching down motion, default 1)", type=int, default=[1], nargs="+")
+    parser.add_argument("--VideoDir", help="Path to directory containing videos corresponding to SRT files required for extracting frames", type=str)
+    parser.add_argument("--SaveJson", help="If to save results in json format", action='store_true', default=False)
+    parser.add_argument("--JsonPath", help="Path to save json to leave blank for default save", type=str)
+    parser.add_argument("--SaveFrames", help="If to save the frames of the video individually", action='store_true', default=False)
+    parser.add_argument("--FrameDirectory", help="Directory to save frames to",  type=str)
+    parser.add_argument("--TargetGimbal", help="What gimbal angle we we are targetting for our frames",  type=float, default=-69)
+    parser.add_argument("--FPS", help="Our video FPS (and how often to interpolate the log file)",  type=float, default=30)
+    parser.add_argument("--Timezone", help="Timezone for timestamps",  type=str, default="America/Toronto")
+    parser.add_argument("--SamplingRate", help="Sampling rate to save frames at", type=int, default=100)
+    parser.add_argument("--Portrait", help="If video was shot in portrait", action="store_true", default=False)
+    parser.add_argument("--CameraModel", help="Camera model of drone (useful for downstream photometry tasks)", type=str, default="FC8482")
+    parser.add_argument("--Template", help="Template jpg file to copy metadata from", type=str, default="Template/DJI_0419.JPG")
+
+    return parser
+
+def preprocess_args(args):
+    
+    if len(args.Detections) == 1 :
+        if(not os.path.isdir(args.Detections[0])):
+            raise RuntimeError(f"{args.Detections[0]} not a directory")
+        else:
+            args.Detections= str(args.Detections[0])
+
+    else:
+        bad = [f for f in args.Detections if not os.path.isfile(f)]
+        if bad:
+            raise RuntimeError(f"--Detections expects existing files, but {bad} not found")
+        
+    return args
 
 
 if __name__=="__main__":
+    parser = get_parser()
+    args = parser.parse_args()
 
-    main(None)
+    args= preprocess_args(args)
+
+    main(args)
