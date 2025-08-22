@@ -140,7 +140,7 @@ class GeoTagger:
         srt_df=self.srt_files[0]
 
         # Get first useful position tuple from SRT file, we will use this to match locations from the log file
-        first_lat,first_lon = srt_df.iloc[self.frame_index-1]['latitude'],srt_df.iloc[0]['longitude']
+        first_lat,first_lon = srt_df.iloc[self.frame_index-1]['latitude'],srt_df.iloc[self.frame_index-1]['longitude']
 
         #Convert lat lon to radians
         first_point=np.deg2rad(np.asarray([first_lat, first_lon], dtype=np.float64))
